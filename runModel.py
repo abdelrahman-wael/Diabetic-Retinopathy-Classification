@@ -1,7 +1,11 @@
 from sklearn.metrics import accuracy_score, confusion_matrix, cohen_kappa_score
-
-
+import torch.nn as nn
+import troch 
+from utils.helpers import getMetrics
+from tqdm import tqdm 
 def runModel(model , optimizer , dataloader   , device ,train):
+
+  
   if train:
     model.train()
     mode = "training"
@@ -16,9 +20,8 @@ def runModel(model , optimizer , dataloader   , device ,train):
   preds_list=torch.zeros(0,dtype=torch.long, device='cpu')
   labels_list=torch.zeros(0,dtype=torch.long, device='cpu')
   totalLoss = 0
-
   model.to(device)
-  with tqdm(dataloader, unit="batch" , position=0 , leave=True) as tepoch:
+  with tqdm(dataloader, unit="batch" , position=0 , leave=True ) as tepoch:
     for batch in tepoch:
       # print(len(batch[0].keys()))
       images = batch["image"]
@@ -45,10 +48,11 @@ def runModel(model , optimizer , dataloader   , device ,train):
       preds_numpy = preds_list.numpy()
       labels_numpy = labels_list.numpy()
       
-      currentKappa = cohen_kappa_score(labels_numpy, preds_numpy, weights='quadratic')
-      currentAccuracy = accuracy_score(labels_numpy, preds_numpy)
-  
+      currentKappa, currentAccuracy = getMetrics(preds_numpy,labels_numpy)
+     
 
       tepoch.set_postfix(loss=totalLoss/len(preds_numpy), mode = mode +" accuracy ={}".format(currentAccuracy) ,kappa =  currentKappa)
-
-  return preds_numpy,labels_numpy
+  return {"totalLoss":totalLoss/len(preds_numpy),
+          "currentKappa":currentKappa,
+          "currentAccuracy":currentAccuracy,
+          "confusionMatrix":confusion_matrix(labels_numpy,preds_numpy)}

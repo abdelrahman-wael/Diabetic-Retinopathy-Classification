@@ -2,6 +2,8 @@
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, cohen_kappa_score
+import imageio
 
 #  get all masks for each corresponding image note lessionDir and imagesDir are folders names 
 # and current Dir is the dir of the dataset
@@ -17,6 +19,12 @@ def getLessionsPath(lessionsDir,imagesDir):
     imagesWithMask[image] = maskPaths
 
   return imagesWithMask
+
+def getMetrics(preds_numpy,labels_numpy):
+  currentKappa = cohen_kappa_score(labels_numpy, preds_numpy, weights='quadratic')
+  currentAccuracy = accuracy_score(labels_numpy, preds_numpy)
+  return currentKappa , currentAccuracy 
+  
 
 
 # giving all masks absolute paths, return overlapped mask 
