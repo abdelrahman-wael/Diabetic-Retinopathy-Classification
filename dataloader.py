@@ -2,37 +2,56 @@ from torch.utils.data import Dataset , DataLoader
 from utils.helpers import *
 from torchvision import transforms
 import json 
+import imageio
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
+import torch 
+import cv2
 
 class fundsDataset(Dataset):
-  def __init__(self,imagesPath , maksPath  , gradingCsv , transform = None  ):
+  def __init__(self,imagesPath , masksPath  , gradingCsv , transform = None  ):
     super(fundsDataset, self).__init__()
-    with open(maksPath, 'r') as fp:
+    with open(masksPath, 'r') as fp:
       self.masksPath = json.load(fp)
+    self.imagesName = os.listdir()
     self.imagesPath = imagesPath
-    self.grade = imagesPath
+    self.grade = gradingCsv
     self.img_transform = transform
+    self.images = self.imgDic(imagesPath)
+    
+  def imgDic(self,imagesPath):
+    images={}
+    for imagePath in tqdm(imagesPath , leave = False , position=0):
+      image = imageio.imread(imagePath)
+      images[imagePath] = cv2.resize(image, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
+    return images
 
   def __getitem__(self,index):
-    image = self.imagesPath[index]
-    mask = self.masksPath[image]
-    dr_grade = self.class_[image]
-
+    imageName = self.imagesPath[index]
+    image = self.images[imageName]
+    imageName = imageName.split("/")[-1]
+    masks = self.masksPath[imageName]
+    dr_grade = self.grade[imageName]
+    dr_grade = np.array(dr_grade)
+    
     if self.img_transform:
       image = self.img_transform(image)
-      dr_grade = self.img_transform(dr_grade)
+    dr_grade = torch.tensor(dr_grade)
 
-    sample = {'image': image , 'dr_grade': dr_grade , "mask": mask}
-    return sample
+    masks = self.embeddMask(masks)
+    return {"imageName":imageName,'image': image , 'dr_grade': dr_grade , "masks":masks}
 
-  
+  def embeddMask(self,masks):
+    embedding = (7-(len(masks)))*[""]
+    return masks + embedding
 
-  def addAllMasks(masks):
-    maskShape = imageio.imread(masks[0]).shape 
-    overlayMask = np.zeros(maskShape)
-    for mask in masks:
-      overlayMask += imageio.imread(mask)
 
-    return overlayMask
+  def read_csv(self,csv):
+    label = pd.read_csv(csv , index_col=0 , header = None)
+    dic=label.to_dict()
+    dic = dic[1]
+    return dic
   
   def __len__(self):
     return len(self.imagesPath)
@@ -41,8 +60,9 @@ def getTransformation():
   return transforms.Compose([transforms.ToTensor()]) 
 
 
-def dataLoader(imagesPath , masksPath , grading):
-  trainImagesPath , validImagesPath , testImagesPath = splitData(imagesPath,grading)
+def dataLoader(imagesPath , masksPath , grading ,hyperparameters,num_workers=2, pin_memory=False):
+  trainImagesPath , validImagesPath , testImagesPath = splitData(imagesPath,grading,hyperparameters["testSize"])
+  batchSize = hyperparameters["batchSize"]
   print("trainImagesPath = " , len(trainImagesPath))
   print("validImagesPath = " , len(validImagesPath))
   print("testImagesPath = " , len(testImagesPath))
@@ -50,5 +70,10 @@ def dataLoader(imagesPath , masksPath , grading):
   trainDataset = fundsDataset(trainImagesPath,masksPath,grading,transformation)
   validDataset = fundsDataset(validImagesPath,masksPath,grading,transformation)
   testDataset = fundsDataset(testImagesPath,masksPath,grading,transformation)
-
-  return trainDataset,validDataset,testDataset
+  trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,shuffle=False, num_workers=num_workers,
+                                             pin_memory=pin_memory)
+  validDataLoader = DataLoader(validDataset, batch_size=batchSize,shuffle=False, num_workers=num_workers,
+                                             pin_memory=pin_memory)
+  testDataLoader =  DataLoader(testDataset, batch_size=batchSize, shuffle=False, num_workers=num_workers,
+                                             pin_memory=pin_memory)
+  return trainDataLoader,validDataLoader,testDataLoader

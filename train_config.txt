@@ -1,0 +1,13 @@
+
+{"batchSize": 4,
+"eps":1e-8,
+"learningRate":2e-5,
+"weightDecay": 0,
+"testSize": 0.3,
+"modelName": "efficientnet-b5",
+"regularization": 0,
+"dropout": null,
+"pretrainedPath": "/content/drive/MyDrive/Visualization/saved Models/efficientnet/non-balanced_efficientnet-b5_lr-5e-5_small-classifier_best_checkpoint.pth",
+"epochs": 30,
+"saveDir": "/content/drive/MyDrive/Visualization/saved Models/wideresnet",
+"loss_func":null}

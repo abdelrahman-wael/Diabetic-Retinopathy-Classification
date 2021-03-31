@@ -1,6 +1,6 @@
 from sklearn.metrics import accuracy_score, confusion_matrix, cohen_kappa_score
 import torch.nn as nn
-import troch 
+import torch 
 from utils.helpers import getMetrics
 from tqdm import tqdm 
 def runModel(model , optimizer , dataloader   , device ,train):
