@@ -10,7 +10,7 @@ import torch
 import cv2
 
 class fundsDataset(Dataset):
-  def __init__(self,imagesPath , masksPath  , gradingCsv , transform = None  ):
+  def __init__(self,imagesPath , masksPath  , gradingCsv , visualization=False,transform = None):
     super(fundsDataset, self).__init__()
     with open(masksPath, 'r') as fp:
       self.masksPath = json.load(fp)
@@ -19,6 +19,7 @@ class fundsDataset(Dataset):
     self.grade = gradingCsv
     self.img_transform = transform
     self.images = self.imgDic(imagesPath)
+    self.visualization = visualization
     
   def imgDic(self,imagesPath):
     images={}
@@ -40,7 +41,15 @@ class fundsDataset(Dataset):
     dr_grade = torch.tensor(dr_grade)
 
     masks = self.embeddMask(masks)
-    return {"imageName":imageName,'image': image , 'dr_grade': dr_grade , "masks":masks}
+
+    if self.visualization:
+      overlappedMasks = addAllMasks(masks)
+      overlappedMasks = cv2.resize(overlappedMasks, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
+      overlappedMasks = self.img_transform(overlappedMasks)
+    else:
+      overlappedMasks = 0
+
+    return {"imageName":imageName,'image': image , 'dr_grade': dr_grade , "masks":masks , "overlappedMasks":overlappedMasks }
 
   def embeddMask(self,masks):
     embedding = (7-(len(masks)))*[""]
@@ -60,8 +69,9 @@ def getTransformation():
   return transforms.Compose([transforms.ToTensor()]) 
 
 
+
 def dataLoader(imagesPath , masksPath , grading ,hyperparameters,num_workers=2, pin_memory=False):
-  trainImagesPath , validImagesPath , testImagesPath = splitData(imagesPath,grading,hyperparameters["testSize"])
+  trainImagesPath , validImagesPath , testImagesPath , visualizationDic = splitData(imagesPath,grading,hyperparameters["testSize"])
   batchSize = hyperparameters["batchSize"]
   print("trainImagesPath = " , len(trainImagesPath))
   print("validImagesPath = " , len(validImagesPath))
@@ -70,10 +80,11 @@ def dataLoader(imagesPath , masksPath , grading ,hyperparameters,num_workers=2, 
   trainDataset = fundsDataset(trainImagesPath,masksPath,grading,transformation)
   validDataset = fundsDataset(validImagesPath,masksPath,grading,transformation)
   testDataset = fundsDataset(testImagesPath,masksPath,grading,transformation)
-  trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,shuffle=False, num_workers=num_workers,
+  trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,shuffle=True, num_workers=num_workers,
                                              pin_memory=pin_memory)
   validDataLoader = DataLoader(validDataset, batch_size=batchSize,shuffle=False, num_workers=num_workers,
                                              pin_memory=pin_memory)
   testDataLoader =  DataLoader(testDataset, batch_size=batchSize, shuffle=False, num_workers=num_workers,
                                              pin_memory=pin_memory)
-  return trainDataLoader,validDataLoader,testDataLoader
+
+  return trainDataLoader,validDataLoader,testDataLoader,visualizationDic
